@@ -27,6 +27,7 @@ globals [
 
   generous-defecting
 
+
 ]
 
 breed [resource-patch-makers resource-patch-maker]
@@ -136,34 +137,22 @@ to go
   clear-last-round
   ask turtles [
     if energy = 0[
-      ifelse score > 0[
+      ifelse score > 0 [
         set energy score * energy-multiplier
         set score  0
       ] [die]
     ]
-    if pcolor = red [
-      partner-up
+    partner-up
+    if ticks mod number-of-ticks-per-energy = 0 [
+      set energy energy - 1
     ]
-    set energy energy - 1
     if energy > replication-energy-threshold [
       hatch 1
         [set energy initial-turtle-energy]
       set energy initial-turtle-energy
-      ]
-      ;; this is the replication code.
-   ] ;; this includes aging (fixed) plus benefit from any reward
-  to replenish
-    if ticks = time-to-replenish [
-      create-resource-patch-makers resource-replenish-patch
-      [forward WHO
-        set pcolor red
-        set resource-patch true
-        set resource-on-patch initial-patch-resource
-        die]
     ]
-
-end
-
+      ;; this is the replication code.
+  ] ;; this includes aging (fixed) plus benefit from any reward
   let partnered-turtles turtles with [ partnered? ]
   ask partnered-turtles [ select-action ]           ;;all partnered turtles select action
   ask partnered-turtles [ play-a-round ]
@@ -193,7 +182,7 @@ to partner-up ;;turtle procedure
   if (not partnered?) [              ;;make sure still not partnered
     rt (random-float 90 - random-float 90) fd 1     ;;move around randomly
     set partner one-of (turtles-at -1 0) with [ not partnered? ]
-    if partner != nobody [              ;;if successful grabbing a partner, partner up
+    if partner != nobody and pcolor = red [              ;;if successful grabbing a partner, partner up
       set partnered? true
       set heading 270                   ;;face partner
       ask partner [
@@ -207,36 +196,38 @@ end
 
 ;;choose an action based upon the strategy being played
 to select-action ;;turtle procedure
-  if strategy = "random" [ act-randomly ]
-  if strategy = "cooperate" [ cooperate ]
-  if strategy = "defect" [ defect ]
-  if strategy = "tit-for-tat" [ tit-for-tat ]
-  if strategy = "unforgiving" [ unforgiving ]
-  if strategy = "generous" [ generous ]
+  if partner != nobody [
+    if strategy = "random" [ act-randomly ]
+    if strategy = "cooperate" [ cooperate ]
+    if strategy = "defect" [ defect ]
+    if strategy = "tit-for-tat" [ tit-for-tat ]
+    if strategy = "unforgiving" [ unforgiving ]
+    if strategy = "generous" [ generous ]
+  ]
 end
 
 to play-a-round ;;turtle procedure
-  get-payoff     ;;calculate the payoff for this round
-  update-history ;;store the results for next time
+  if partner != nobody [
+    get-payoff     ;;calculate the payoff for this round
+    update-history ;;store the results for next time
+  ]
 end
 
 ;;calculate the payoff for this round and
 ;;display a label with that payoff.
 to get-payoff
-  if partner != nobody [
-    set partner-defected? [defect-now?] of partner
-    ifelse partner-defected? [
-      ifelse defect-now? [
-        set score (score + 1 ) set label 1
-      ] [
-        set score (score + 0) set label 0
-      ]
+  set partner-defected? [defect-now?] of partner
+  ifelse partner-defected? [
+    ifelse defect-now? [
+      set score (score + 1 ) set label 1
     ] [
-      ifelse defect-now? [
-        set score (score + 5) set label 5
-      ] [
-        set score (score + 3) set label 3
-      ]
+      set score (score + 0) set label 0
+    ]
+  ] [
+    ifelse defect-now? [
+      set score (score + 5) set label 5
+    ] [
+      set score (score + 3) set label 3
     ]
   ]
  ;; set energy energy - 1 ;+ score
@@ -291,31 +282,25 @@ to defect-history-update
 end
 
 to tit-for-tat
-  if partner != nobody [
-    set num-tit-for-tat-games num-tit-for-tat-games + 1
-    set partner-defected? item ([who] of partner) partner-history
-    ifelse (partner-defected?) [
-      set defect-now? true
-    ] [
-      set defect-now? false
-    ]
+  set num-tit-for-tat-games num-tit-for-tat-games + 1
+  set partner-defected? item ([who] of partner) partner-history
+  ifelse (partner-defected?) [
+    set defect-now? true
+  ] [
+    set defect-now? false
   ]
 end
 
 to tit-for-tat-history-update
-  if partner != nobody [
     set partner-history (replace-item ([who] of partner) partner-history partner-defected?)
-  ]
 end
 
 to unforgiving
-  if partner != nobody [
-    set num-unforgiving-games num-unforgiving-games + 1
-    set partner-defected? item ([who] of partner) partner-history
-    ifelse (partner-defected?)
-    [set defect-now? true]
-    [set defect-now? false]
-  ]
+  set num-unforgiving-games num-unforgiving-games + 1
+  set partner-defected? item ([who] of partner) partner-history
+  ifelse (partner-defected?)
+  [set defect-now? true]
+  [set defect-now? false]
 end
 
 to unforgiving-history-update
@@ -484,7 +469,7 @@ n-random
 n-random
 0
 200
-0.0
+2.0
 1
 1
 NIL
@@ -499,7 +484,7 @@ n-cooperate
 n-cooperate
 0
 100
-0.0
+100.0
 1
 1
 NIL
@@ -529,7 +514,7 @@ n-tit-for-tat
 n-tit-for-tat
 0
 100
-0.0
+98.0
 1
 1
 NIL
@@ -601,7 +586,7 @@ forgiving
 forgiving
 0
 100
-18.0
+1.0
 1
 1
 NIL
@@ -627,7 +612,7 @@ initial-turtle-energy
 initial-turtle-energy
 0
 100
-99.0
+51.0
 1
 1
 NIL
@@ -757,7 +742,7 @@ replication-energy-threshold
 replication-energy-threshold
 101
 201
-110.0
+104.0
 1
 1
 NIL
@@ -787,7 +772,7 @@ resource-patches
 resource-patches
 0
 100
-50.0
+83.0
 1
 1
 NIL
@@ -833,6 +818,21 @@ time-to-replenish
 0
 100
 50.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+490
+418
+724
+451
+number-of-ticks-per-energy
+number-of-ticks-per-energy
+1
+100
+1.0
 1
 1
 NIL

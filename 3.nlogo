@@ -99,7 +99,9 @@ end
 ;;expanded to include list of histories of the turtles. OR create another partner history for the FTFT. Keeps list of ALL the turtles
 ;; and ALL of the interactions--when he defered and when he cooperated.
 to setup-history-lists
-  let num-turtles count turtles
+ ;; let num-turtles count turtles
+
+   let num-turtles 50000
 
   let default-history [] ;;initialize the DEFAULT-HISTORY variable to be a list
 
@@ -178,36 +180,38 @@ end
 
 ;;choose an action based upon the strategy being played
 to select-action ;;turtle procedure
-  if strategy = "random" [ act-randomly ]
-  if strategy = "cooperate" [ cooperate ]
-  if strategy = "defect" [ defect ]
-  if strategy = "tit-for-tat" [ tit-for-tat ]
-  if strategy = "unforgiving" [ unforgiving ]
-  if strategy = "generous" [ generous ]
+  if partner != nobody [
+    if strategy = "random" [ act-randomly ]
+    if strategy = "cooperate" [ cooperate ]
+    if strategy = "defect" [ defect ]
+    if strategy = "tit-for-tat" [ tit-for-tat ]
+    if strategy = "unforgiving" [ unforgiving ]
+    if strategy = "generous" [ generous ]
+  ]
 end
 
 to play-a-round ;;turtle procedure
-  get-payoff     ;;calculate the payoff for this round
-  update-history ;;store the results for next time
+  if partner != nobody [
+    get-payoff     ;;calculate the payoff for this round
+    update-history ;;store the results for next time
+  ]
 end
 
 ;;calculate the payoff for this round and
 ;;display a label with that payoff.
 to get-payoff
-  if partner != nobody [
-    set partner-defected? [defect-now?] of partner
-    ifelse partner-defected? [
-      ifelse defect-now? [
-        set score (score + 1 ) set label 1
-      ] [
-        set score (score + 0) set label 0
-      ]
+  set partner-defected? [defect-now?] of partner
+  ifelse partner-defected? [
+    ifelse defect-now? [
+      set score (score + 1 ) set label 1
     ] [
-      ifelse defect-now? [
-        set score (score + 5) set label 5
-      ] [
-        set score (score + 3) set label 3
-      ]
+      set score (score + 0) set label 0
+    ]
+  ] [
+    ifelse defect-now? [
+      set score (score + 5) set label 5
+    ] [
+      set score (score + 3) set label 3
     ]
   ]
  ;; set energy energy - 1 ;+ score
@@ -262,31 +266,25 @@ to defect-history-update
 end
 
 to tit-for-tat
-  if partner != nobody [
-    set num-tit-for-tat-games num-tit-for-tat-games + 1
-    set partner-defected? item ([who] of partner) partner-history
-    ifelse (partner-defected?) [
-      set defect-now? true
-    ] [
-      set defect-now? false
-    ]
+  set num-tit-for-tat-games num-tit-for-tat-games + 1
+  set partner-defected? item ([who] of partner) partner-history
+  ifelse (partner-defected?) [
+    set defect-now? true
+  ] [
+    set defect-now? false
   ]
 end
 
 to tit-for-tat-history-update
-  if partner != nobody [
     set partner-history (replace-item ([who] of partner) partner-history partner-defected?)
-  ]
 end
 
 to unforgiving
-  if partner != nobody [
-    set num-unforgiving-games num-unforgiving-games + 1
-    set partner-defected? item ([who] of partner) partner-history
-    ifelse (partner-defected?)
-    [set defect-now? true]
-    [set defect-now? false]
-  ]
+  set num-unforgiving-games num-unforgiving-games + 1
+  set partner-defected? item ([who] of partner) partner-history
+  ifelse (partner-defected?)
+  [set defect-now? true]
+  [set defect-now? false]
 end
 
 to unforgiving-history-update
@@ -455,7 +453,7 @@ n-random
 n-random
 0
 200
-200.0
+1.0
 1
 1
 NIL
@@ -485,7 +483,7 @@ n-defect
 n-defect
 0
 200
-200.0
+0.0
 1
 1
 NIL
@@ -500,7 +498,7 @@ n-tit-for-tat
 n-tit-for-tat
 0
 100
-0.0
+100.0
 1
 1
 NIL
@@ -726,9 +724,9 @@ SLIDER
 412
 replication-energy-threshold
 replication-energy-threshold
-101
+90
 201
-110.0
+107.0
 1
 1
 NIL
