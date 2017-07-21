@@ -152,7 +152,16 @@ to go
       ]
       ;; this is the replication code.
    ] ;; this includes aging (fixed) plus benefit from any reward
-  to replenish
+
+  replenish ;;this will replenish the resource patches
+
+  let partnered-turtles turtles with [ partnered? ]
+  ask partnered-turtles [ select-action ]           ;;all partnered turtles select action
+  ask partnered-turtles [ play-a-round ]
+  do-scoring
+  tick
+end
+to replenish
     if ticks = time-to-replenish [
       create-resource-patch-makers resource-replenish-patch
       [forward WHO
@@ -162,13 +171,6 @@ to go
         die]
     ]
 
-end
-
-  let partnered-turtles turtles with [ partnered? ]
-  ask partnered-turtles [ select-action ]           ;;all partnered turtles select action
-  ask partnered-turtles [ play-a-round ]
-  do-scoring
-  tick
 end
 
 to clear-last-round
