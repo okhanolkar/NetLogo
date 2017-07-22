@@ -45,7 +45,10 @@ turtles-own [
                     ;;with other turtles (indexed by WHO values)
   energy               ;;to help extinct the turtles
   resource-on-turtle ;; to help turtle pick up resources
+  partner-payoff ;;store for payoff values per partner for matching
 ]
+
+
 
 patches-own [
   resource-patch
@@ -110,6 +113,7 @@ to setup-common-variables
     set partner nobody
     setxy random-xcor random-ycor
     set energy random initial-turtle-energy
+    set partner-payoff table:make
   ]
   setup-history-lists ;;initialize PARTNER-HISTORY list in all turtles
 end
@@ -199,7 +203,23 @@ to partner-up ;;turtle procedure
   if (not partnered?) [              ;;make sure still not partnered
     rt (random-float 90 - random-float 90) fd 1     ;;move around randomly
     if pcolor = red and resource-on-patch > 0 [
-      set partner one-of (turtles-at -1 0) with [ not partnered? ]
+      ask turtles-at -1 0 [
+        let p-who-number who
+       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        ;;;;;;;;;;;;;;;;;;;;;;;;
+      ;;  START HERE!!!!!!!!!!
+        ;;;;;;;;;
+        ;;;;;;
+        ;;;;;
+
+      ]
+    ]
+  ]
+end
+
+to perform-partner
+  set partner one-of (turtles-at -1 0) with [ not partnered? ]
       if partner != nobody [              ;;if successful grabbing a partner, partner up
         set resource-on-patch resource-on-patch - 1
         set partnered? true
@@ -210,10 +230,8 @@ to partner-up ;;turtle procedure
           set heading 90
         ]
       ]
-    ]
-  ]
-end
 
+end
 
 ;;choose an action based upon the strategy being played
 to select-action ;;turtle procedure
