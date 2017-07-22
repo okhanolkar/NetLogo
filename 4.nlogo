@@ -27,6 +27,8 @@ globals [
 
   generous-defecting
 
+  total-resources
+
 
 ]
 
@@ -135,14 +137,19 @@ end
 to go
 
   clear-last-round
-  ask turtles [
+
+
+  ask turtles [  ;; gets called for each turtle
     if energy = 0[
       ifelse score > 0 [
         set energy score * energy-multiplier
         set score  0
       ] [die]
     ]
-    partner-up
+    partner-up ;;A , B,  C
+    ;;; A p C
+    ;; B
+    ;; C
     if ticks mod number-of-ticks-per-energy = 0 [
       set energy energy - 1
     ]
@@ -153,6 +160,16 @@ to go
     ]
       ;; this is the replication code.
   ] ;; this includes aging (fixed) plus benefit from any reward
+
+  ;; replenish resource patches
+  if ticks mod time-to-replenish = 0 and time-to-replenish != 100 [
+    ask patches [
+      if pcolor = red [
+        set resource-on-patch initial-patch-resource
+      ]
+    ]
+  ]
+
   let partnered-turtles turtles with [ partnered? ]
   ask partnered-turtles [ select-action ]           ;;all partnered turtles select action
   ask partnered-turtles [ play-a-round ]
@@ -181,18 +198,22 @@ end
 to partner-up ;;turtle procedure
   if (not partnered?) [              ;;make sure still not partnered
     rt (random-float 90 - random-float 90) fd 1     ;;move around randomly
-    set partner one-of (turtles-at -1 0) with [ not partnered? ]
-    if partner != nobody and pcolor = red [              ;;if successful grabbing a partner, partner up
-      set partnered? true
-      set heading 270                   ;;face partner
-      ask partner [
+    if pcolor = red and resource-on-patch > 0 [
+      set partner one-of (turtles-at -1 0) with [ not partnered? ]
+      if partner != nobody [              ;;if successful grabbing a partner, partner up
+        set resource-on-patch resource-on-patch - 1
         set partnered? true
-        set partner myself
-        set heading 90
+        set heading 270                   ;;face partner
+        ask partner [
+          set partnered? true
+          set partner myself
+          set heading 90
+        ]
       ]
     ]
   ]
 end
+
 
 ;;choose an action based upon the strategy being played
 to select-action ;;turtle procedure
@@ -356,6 +377,7 @@ to do-scoring
   set tit-for-tat-score  (calc-score "tit-for-tat" num-tit-for-tat)
   set unforgiving-score  (calc-score "unforgiving" num-unforgiving)
   set generous-score  (calc-score "generous" num-generous)
+  set total-resources (calc-resources)
 end
 
 ;; returns the total score for a strategy if any turtles exist that are playing it
@@ -365,6 +387,10 @@ to-report calc-score [strategy-type num-with-strategy]
   ] [
     report 0
   ]
+end
+
+to-report calc-resources
+  report (sum [resource-on-patch] of (patches))
 end
 
 ;alternative way to do this (I think)
@@ -404,10 +430,10 @@ ticks
 10.0
 
 BUTTON
-8
-19
-86
-62
+1006
+526
+1084
+569
 NIL
 setup
 NIL
@@ -421,10 +447,10 @@ NIL
 1
 
 PLOT
-8
-330
-292
-547
+142
+28
+426
+245
 Average Payoff
 Iterations
 Ave Payoff
@@ -444,10 +470,10 @@ PENS
 "generous" 1.0 0 -5825686 true "" "if num-generous-games > 0 [ plot generous-score / (num-generous-games) ]"
 
 BUTTON
-85
-19
-174
-62
+1083
+526
+1172
+569
 NIL
 go
 T
@@ -461,10 +487,10 @@ NIL
 1
 
 SLIDER
-8
-61
-134
-94
+752
+518
+878
+551
 n-random
 n-random
 0
@@ -476,10 +502,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-8
-94
-134
-127
+752
+551
+878
+584
 n-cooperate
 n-cooperate
 0
@@ -491,40 +517,40 @@ NIL
 HORIZONTAL
 
 SLIDER
-8
-127
-134
-160
+752
+584
+878
+617
 n-defect
 n-defect
 0
 200
-0.0
+103.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-133
-61
-259
-94
+877
+518
+1003
+551
 n-tit-for-tat
 n-tit-for-tat
 0
 100
-98.0
+100.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-133
-94
-259
-127
+877
+551
+1003
+584
 n-unforgiving
 n-unforgiving
 0
@@ -536,35 +562,35 @@ NIL
 HORIZONTAL
 
 SLIDER
-133
-127
-259
-160
+877
+584
+1003
+617
 n-generous
 n-generous
 0
 100
-0.0
+35.0
 1
 1
 NIL
 HORIZONTAL
 
 TEXTBOX
-12
-175
-178
-315
+1103
+596
+1259
+739
       PAYOFF:\n             Partner    \nTurtle    C       D\n-------------------------\n    C        3      0  \n-------------------------\n    D        5      1\n-------------------------\n(C = Cooperate, D = Defect)
 11
 0.0
 0
 
 BUTTON
-174
-19
-260
-63
+1172
+526
+1258
+570
 go once
 go
 NIL
@@ -578,10 +604,10 @@ NIL
 1
 
 SLIDER
-310
-441
-482
-474
+579
+520
+751
+553
 forgiving
 forgiving
 0
@@ -593,10 +619,10 @@ NIL
 HORIZONTAL
 
 MONITOR
-306
-385
-442
-430
+1261
+365
+1341
+410
 NIL
 generous-defecting
 17
@@ -604,25 +630,25 @@ generous-defecting
 11
 
 SLIDER
-403
-302
-580
-335
+576
+649
+753
+682
 initial-turtle-energy
 initial-turtle-energy
 0
 100
-51.0
+40.0
 1
 1
 NIL
 HORIZONTAL
 
 MONITOR
-306
-332
-399
-377
+1261
+312
+1340
+357
 NIL
 count turtles
 17
@@ -630,10 +656,10 @@ count turtles
 11
 
 PLOT
-278
-24
-573
-272
+439
+26
+734
+274
 Turtle Populations
 NIL
 NIL
@@ -653,10 +679,10 @@ PENS
 "generous" 1.0 0 -7858858 true "" "plot count turtles with [strategy = \"generous\"]"
 
 SLIDER
-405
-341
-577
-374
+578
+683
+750
+716
 energy-multiplier
 energy-multiplier
 1
@@ -668,10 +694,10 @@ NIL
 HORIZONTAL
 
 MONITOR
-584
-26
-669
-71
+1259
+18
+1344
+63
 Random
 count turtles with [strategy = \"random\"]
 17
@@ -679,10 +705,10 @@ count turtles with [strategy = \"random\"]
 11
 
 MONITOR
-584
-74
-667
-119
+1259
+66
+1342
+111
 Cooperate
 count turtles with [strategy = \"cooperate\"]
 17
@@ -690,10 +716,10 @@ count turtles with [strategy = \"cooperate\"]
 11
 
 MONITOR
-584
-121
-667
-166
+1259
+113
+1342
+158
 Defect
 count turtles with [strategy = \"defect\"]
 17
@@ -701,10 +727,10 @@ count turtles with [strategy = \"defect\"]
 11
 
 MONITOR
-583
-169
-667
-214
+1258
+161
+1342
+206
 Tit-for-tat
 count turtles with [strategy = \"tit-for-tat\"]
 17
@@ -712,10 +738,10 @@ count turtles with [strategy = \"tit-for-tat\"]
 11
 
 MONITOR
-585
-218
-667
-263
+1260
+210
+1342
+255
 Unforgiving
 count turtles with [strategy = \"unforgiving\"]
 17
@@ -723,10 +749,10 @@ count turtles with [strategy = \"unforgiving\"]
 11
 
 MONITOR
-585
-267
-665
-312
+1260
+259
+1340
+304
 Generous
 count turtles with [strategy = \"generous\"]
 17
@@ -734,10 +760,10 @@ count turtles with [strategy = \"generous\"]
 11
 
 SLIDER
-456
-379
-691
-412
+334
+518
+569
+551
 replication-energy-threshold
 replication-energy-threshold
 101
@@ -749,40 +775,40 @@ NIL
 HORIZONTAL
 
 SLIDER
-307
-478
-479
-511
+578
+552
+750
+585
 random-seed?
 random-seed?
 0
 100
-50.0
+64.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-521
-455
-693
-488
+577
+616
+749
+649
 resource-patches
 resource-patches
 0
-100
-83.0
+1000
+95.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-521
-488
-711
-521
+335
+615
+525
+648
 initial-patch-resource
 initial-patch-resource
 0
@@ -794,10 +820,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-520
-521
-735
-554
+334
+584
+549
+617
 resource-replenish-patch
 resource-replenish-patch
 0
@@ -809,34 +835,45 @@ NIL
 HORIZONTAL
 
 SLIDER
-524
-555
-696
-588
+578
+584
+750
+617
 time-to-replenish
 time-to-replenish
-0
+1
 100
-50.0
+80.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-490
-418
-724
-451
+334
+552
+568
+585
 number-of-ticks-per-energy
 number-of-ticks-per-energy
 1
 100
-1.0
+9.0
 1
 1
 NIL
 HORIZONTAL
+
+MONITOR
+1263
+414
+1338
+459
+resources
+total-resources
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
