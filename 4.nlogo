@@ -199,23 +199,27 @@ end
 ;;Since other turtles that have already executed partner-up may have
 ;;caused the turtle executing partner-up to be partnered,
 ;;a check is needed to make sure the calling turtle isn't partnered.
-
 to partner-up ;;turtle procedure
   if (not partnered?) [              ;;make sure still not partnered
     rt (random-float 90 - random-float 90) fd 1     ;;move around randomly
     if pcolor = red and resource-on-patch > 0 [     ;; if we are on a red patch that has recources then proceed with partering
       let my-who-number who
-      let me-turtle turtle who     ;; agent A
-      ask other turtles-at -1 0 [                         ;; Ask all the near by turtles
-        if me-turtle != myself [
-          type me-turtle print myself
-        compute-payoff me-turtle myself ;; computer score
-        type myself print partner-payoff
-          type me-turtle print partner-payoff
+      let me-turtle self     ;; agent A
+      ask (turtles-at -1 0) [                         ;; Ask all the near by turtles
+        set partner me-turtle
+        select-action
+        let other-turtle self
+        ask me-turtle [
+          set partner other-turtle
+          select-action
+          set partner nobody
         ]
-
+        compute-payoff me-turtle self ;; computer score
+        set partner nobody
+        ;; print for debug
+;        type "1 " type self print partner-payoff
+;        type "2 " type me-turtle print [partner-payoff] of me-turtle
       ]
-
     ]
   ]
 end
@@ -261,8 +265,8 @@ to get-payoff
   ;; TODO this code is tobe refactored
   ;; this code has duplicate logic as report-payoff
   ;; we need to remote the the logic duplication
-  set partner-defected? [defect-now?] of partner
-  set score report-payoff defect-now? partner-defected?        ;; Assign the computed score
+;;  set partner-defected? [defect-now?] of partner
+  set score report-payoff partner        ;; Assign the computed score
   ifelse partner-defected? [
     ifelse defect-now? [
       set label 1
@@ -279,13 +283,13 @@ to get-payoff
  ;; set energy energy - 1 ;+ score
 end
 
-to-report report-payoff [l-defect-now l-partner-defected]
+to-report report-payoff [other-turtle]
   ;; TODO this code is tobe refactored
   ;; this code has duplicate logic as report-payoff
   ;; we need to remote the the logic duplication
   let return-score 0
-  ifelse l-partner-defected = 0  [
-    ifelse l-defect-now = 0 [
+  ifelse [defect-now?] of other-turtle  [
+    ifelse defect-now? [
       set return-score (score + 1 )
 
     ] [
@@ -304,27 +308,12 @@ end
 ;; compute payoff for 2 turtles interaction
 ;; and put the values in the payoff matrix.
 to compute-payoff [me-turtle other-turtle]
-  type me-turtle print other-turtle
   ;; initiliaze the variables
-  let score-sum 0
-  let score-me-turtle 0
-  let score-other-turtle 0
-  let me-who-number 0
-  let other-who-number 0
-
-  ;; compute scores
-  ask me-turtle [
-    set score-me-turtle report-payoff defect-now? ([defect-now?] of other-turtle)
-    set me-who-number who
-  ]
-  ask other-turtle [
-    set score-other-turtle report-payoff defect-now? ([defect-now?] of me-turtle)
-    set other-who-number who
-  ]
-
-  set score-sum score-me-turtle + score-other-turtle         ;; computer sum of the 2 scores
-  type " me who number " print me-who-number
-  type "other who number" print other-who-number
+  let score-me-turtle [report-payoff other-turtle] of me-turtle
+  let score-other-turtle [report-payoff me-turtle] of other-turtle
+  let me-who-number [who] of me-turtle
+  let other-who-number [who] of other-turtle
+  let score-sum score-me-turtle + score-other-turtle         ;; computer sum of the 2 scores
   ;; set values in the payoff matrix.
   ask me-turtle [
     let a array:from-list n-values 2 [0]
