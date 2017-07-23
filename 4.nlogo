@@ -1,3 +1,4 @@
+extensions [ table array]
 globals [
   ;;number of turtles with each strategy
   num-random
@@ -113,7 +114,6 @@ to setup-common-variables
     set partner nobody
     setxy random-xcor random-ycor
     set energy random initial-turtle-energy
-    set partner-payoff table:make
   ]
   setup-history-lists ;;initialize PARTNER-HISTORY list in all turtles
 end
@@ -183,7 +183,8 @@ end
 
 to clear-last-round
   let partnered-turtles turtles with [ partnered? ] ; defines an energyntset
-  ask partnered-turtles [ release-partners ]
+  ask partnered-turtles [ release-partners ] ;; release partners
+  ask turtles [set partner-payoff table:make] ;; clear up the payoff table
 end
 
 ;;release partner and turn around to leave
@@ -202,35 +203,37 @@ end
 to partner-up ;;turtle procedure
   if (not partnered?) [              ;;make sure still not partnered
     rt (random-float 90 - random-float 90) fd 1     ;;move around randomly
-    if pcolor = red and resource-on-patch > 0 [
-      ask turtles-at -1 0 [
-        let p-who-number who
-       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        ;;;;;;;;;;;;;;;;;;;;;;;;
-      ;;  START HERE!!!!!!!!!!
-        ;;;;;;;;;
-        ;;;;;;
-        ;;;;;
+    if pcolor = red and resource-on-patch > 0 [     ;; if we are on a red patch that has recources then proceed with partering
+      let my-who-number who
+      let me-turtle turtle who     ;; agent A
+      ask other turtles-at -1 0 [                         ;; Ask all the near by turtles
+        if me-turtle != myself [
+          type me-turtle print myself
+        compute-payoff me-turtle myself ;; computer score
+        type myself print partner-payoff
+          type me-turtle print partner-payoff
+        ]
 
       ]
+
     ]
   ]
 end
 
+
+;; old partner function no longer required because we changed the partnering logic
 to perform-partner
   set partner one-of (turtles-at -1 0) with [ not partnered? ]
-      if partner != nobody [              ;;if successful grabbing a partner, partner up
-        set resource-on-patch resource-on-patch - 1
+    if partner != nobody [              ;;if successful grabbing a partner, partner up
+      set resource-on-patch resource-on-patch - 1
+      set partnered? true
+      set heading 270                   ;;face partner
+      ask partner [
         set partnered? true
-        set heading 270                   ;;face partner
-        ask partner [
-          set partnered? true
-          set partner myself
-          set heading 90
-        ]
+        set partner myself
+        set heading 90
       ]
-
+    ]
 end
 
 ;;choose an action based upon the strategy being played
@@ -255,22 +258,90 @@ end
 ;;calculate the payoff for this round and
 ;;display a label with that payoff.
 to get-payoff
+  ;; TODO this code is tobe refactored
+  ;; this code has duplicate logic as report-payoff
+  ;; we need to remote the the logic duplication
   set partner-defected? [defect-now?] of partner
+  set score report-payoff defect-now? partner-defected?        ;; Assign the computed score
   ifelse partner-defected? [
     ifelse defect-now? [
-      set score (score + 1 ) set label 1
+      set label 1
     ] [
-      set score (score + 0) set label 0
+      set label 0
     ]
   ] [
     ifelse defect-now? [
-      set score (score + 5) set label 5
+      set label 5
     ] [
-      set score (score + 3) set label 3
+      set label 3
     ]
   ]
  ;; set energy energy - 1 ;+ score
 end
+
+to-report report-payoff [l-defect-now l-partner-defected]
+  ;; TODO this code is tobe refactored
+  ;; this code has duplicate logic as report-payoff
+  ;; we need to remote the the logic duplication
+  let return-score 0
+  ifelse l-partner-defected = 0  [
+    ifelse l-defect-now = 0 [
+      set return-score (score + 1 )
+
+    ] [
+      set return-score (score + 0)
+    ]
+  ] [
+    ifelse defect-now? [
+      set return-score (score + 5)
+    ] [
+      set return-score (score + 3)
+    ]
+  ]
+  report return-score
+end
+
+;; compute payoff for 2 turtles interaction
+;; and put the values in the payoff matrix.
+to compute-payoff [me-turtle other-turtle]
+  type me-turtle print other-turtle
+  ;; initiliaze the variables
+  let score-sum 0
+  let score-me-turtle 0
+  let score-other-turtle 0
+  let me-who-number 0
+  let other-who-number 0
+
+  ;; compute scores
+  ask me-turtle [
+    set score-me-turtle report-payoff defect-now? ([defect-now?] of other-turtle)
+    set me-who-number who
+  ]
+  ask other-turtle [
+    set score-other-turtle report-payoff defect-now? ([defect-now?] of me-turtle)
+    set other-who-number who
+  ]
+
+  set score-sum score-me-turtle + score-other-turtle         ;; computer sum of the 2 scores
+  type " me who number " print me-who-number
+  type "other who number" print other-who-number
+  ;; set values in the payoff matrix.
+  ask me-turtle [
+    let a array:from-list n-values 2 [0]
+    array:set a 0 score-me-turtle
+    array:set a 1 score-sum
+    table:put partner-payoff other-who-number a
+  ]
+  ask other-turtle [
+    let a array:from-list n-values 2 [0]
+    array:set a 0 score-other-turtle
+    array:set a 1 score-sum
+    table:put partner-payoff me-who-number a
+  ]
+end
+
+
+
 
 ;;update PARTNER-HISTORY based upon the strategy being played
 to update-history
