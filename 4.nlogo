@@ -49,30 +49,24 @@ turtles-own [
   partner-payoff ;;store for payoff values per partner for matching
 ]
 
-
-
 patches-own [
   resource-patch
   resource-on-patch ;;sets resources on patch
 ]
-;;;;;;;;;;;;;;;;;;;;;;
-;;;Setup Procedures;;;
-;;;;;;;;;;;;;;;;;;;;;;
 
+;;; Setup Procedures;;;
 to setup
-  clear-all
+  clear-all                   ;; clear all counters
   random-seed random-seed?
   store-initial-turtle-counts ;;record the number of turtles created for each strategy
-  setup-turtles ;;setup the turtles and distribute them randomly
+  setup-turtles               ;;setup the turtles and distribute them randomly
   reset-ticks
-
 end
 
-;;record the number of turtles created for each strategy
-;;The number of turtles of each strategy is used when calculating averenergy payoffs.
-;;Slider values might change over time, so we need to record their settings.
-;;Counting the turtles would also work, but slows the model.
-to store-initial-turtle-counts
+to store-initial-turtle-counts ;;record the number of turtles created for each strategy
+                               ;;The number of turtles of each strategy is used when calculating averenergy payoffs.
+                               ;;Slider values might change over time, so we need to record their settings.
+                               ;;Counting the turtles would also work, but slows the model.
   set num-random n-random
   set num-cooperate n-cooperate
   set num-defect n-defect
@@ -82,10 +76,11 @@ to store-initial-turtle-counts
   set num-forgiving forgiving
 end
 
-;;setup the turtles and distribute them randomly
-to setup-turtles
+to setup-turtles ;;setup the turtles and distribute them randomly
+
   make-turtles ;;create the appropriate number of turtles playing each strategy
   setup-common-variables ;;sets the variables that all turtles share
+
   ;;this is where you make the resource-patch-makers:
   create-resource-patch-makers resource-patches
   [forward WHO
@@ -96,8 +91,7 @@ to setup-turtles
 
 end
 
-;;create the appropriate number of turtles playing each strategy
-to make-turtles
+to make-turtles ;;create the appropriate number of turtles playing each strategy
   create-turtles num-random [ set strategy "random" set color gray - 1 ]
   create-turtles num-cooperate [ set strategy "cooperate" set color red ]
   create-turtles num-defect [ set strategy "defect" set color blue ]
@@ -106,8 +100,7 @@ to make-turtles
   create-turtles num-generous [set strategy "generous" set color magenta ]
 end
 
-;;set the variables that all turtles share
-to setup-common-variables
+to setup-common-variables ;;set the variables that all turtles share
   ask turtles [
     set score 0
     set partnered? false
@@ -118,10 +111,10 @@ to setup-common-variables
   setup-history-lists ;;initialize PARTNER-HISTORY list in all turtles
 end
 
-;;initialize PARTNER-HISTORY list in all turtles
-;;expanded to include list of histories of the turtles. OR create another partner history for the FTFT. Keeps list of ALL the turtles
-;; and ALL of the interactions--when he defered and when he cooperated.
-to setup-history-lists
+to setup-history-lists ;;initialize PARTNER-HISTORY list in all turtles
+                       ;;expanded to include list of histories of the turtles. OR create another partner history for the FTFT. Keeps list of ALL the turtles
+                       ;; and ALL of the interactions--when he defered and when he cooperated.
+
   let num-turtles count turtles
 
   let default-history [] ;;initialize the DEFAULT-HISTORY variable to be a list
@@ -133,37 +126,51 @@ to setup-history-lists
   ask turtles [ set partner-history default-history ]
 end
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;Runtime Procedures;;;
-;;;;;;;;;;;;;;;;;;;;;;;;
-
 to go
-
   clear-last-round
 
-
-  ask turtles [  ;; gets called for each turtle
-    if energy = 0[
-      ifelse score > 0 [
-        set energy score * energy-multiplier
+  ;; Check energy
+  ;; Make each turtule move randomly
+  ;; Compute the payoff matrix
+  ask turtles [
+    ;; determine if the turtle should continue or die.
+    if energy = 0[   ;; if no engry left
+      ifelse score > 0 [  ;; check if any score can be converted into energy
+        set energy score * energy-multiplier ;; convert a percentage of the score to energy
         set score  0
-      ] [die]
+      ] [die]         ;; if no energy left and no score to convert then die
     ]
-    partner-up ;;A , B,  C
-    ;;; A p C
-    ;; B
-    ;; C
+
+    ;; if turtle is still alive then move randomly and compute payoff matrix
+    rt (random-float 90 - random-float 90) fd 1
+
+    ;; deduct energy from the trutle based on a number-of-ticks-per-energy factor
     if ticks mod number-of-ticks-per-energy = 0 [
       set energy energy - 1
     ]
+  ]
+
+  ;; compute payoff matrix for the current state
+  ask turtles [
+    compute-payoff-matrix
+  ]
+
+  ;; based on the compute matrix pick partners
+  ask turtles [
+    ;; print all matches found for validation
+;    if table:length partner-payoff > 0 [type self print partner-payoff]
+
+    ;; partner up
+    partner-up
+
+    ;; replicate turtles if energy is available
     if energy > replication-energy-threshold [
       hatch 1
         [set energy initial-turtle-energy]
       set energy initial-turtle-energy
     ]
-      ;; this is the replication code.
-  ] ;; this includes aging (fixed) plus benefit from any reward
+  ]
 
   ;; replenish resource patches
   if ticks mod time-to-replenish = 0 and time-to-replenish != 100 [
@@ -181,67 +188,93 @@ to go
   tick
 end
 
+
+
 to clear-last-round
   let partnered-turtles turtles with [ partnered? ] ; defines an energyntset
   ask partnered-turtles [ release-partners ] ;; release partners
   ask turtles [set partner-payoff table:make] ;; clear up the payoff table
 end
 
-;;release partner and turn around to leave
-to release-partners
+to release-partners ;;release partner and turn around to leave
   set partnered? false
   set partner nobody
   rt 180
   set label ""
 end
 
-;;have turtles try to find a partner
-;;Since other turtles that have already executed partner-up may have
-;;caused the turtle executing partner-up to be partnered,
-;;a check is needed to make sure the calling turtle isn't partnered.
-to partner-up ;;turtle procedure
-  if (not partnered?) [              ;;make sure still not partnered
-    rt (random-float 90 - random-float 90) fd 1     ;;move around randomly
-    if pcolor = red and resource-on-patch > 0 [     ;; if we are on a red patch that has recources then proceed with partering
-      let my-who-number who
-      let me-turtle self     ;; agent A
-      ask (turtles-at -1 0) [                         ;; Ask all the near by turtles
-        set partner me-turtle
+to compute-payoff-matrix        ;; Compute the payoff matrix
+                                ;; this matrix contains the relative payoff of individula interactions and the total payout of the interaction
+                                ;; this will be used subsequently in determine the partner with whom the agent will want to interact.
+  if pcolor = red and resource-on-patch > 0 [     ;; if we are on a red patch that has recources then proceed with partering
+    let my-who-number who
+    let me-turtle self     ;; agent A
+    ask (turtles-at -1 0) [                         ;; Ask all the near by turtles
+      set partner me-turtle
+      select-action
+      let other-turtle self
+      ask me-turtle [
+        set partner other-turtle
         select-action
-        let other-turtle self
-        ask me-turtle [
-          set partner other-turtle
-          select-action
-          set partner nobody
-        ]
-        compute-payoff me-turtle self ;; computer score
         set partner nobody
-        ;; print for debug
-;        type "1 " type self print partner-payoff
-;        type "2 " type me-turtle print [partner-payoff] of me-turtle
       ]
+      compute-payoff me-turtle self ;; computer score
+      set partner nobody
     ]
   ]
 end
 
-
-;; old partner function no longer required because we changed the partnering logic
-to perform-partner
-  set partner one-of (turtles-at -1 0) with [ not partnered? ]
-    if partner != nobody [              ;;if successful grabbing a partner, partner up
-      set resource-on-patch resource-on-patch - 1
+to partner-up ;;have turtles try to find a partner
+              ;;Since other turtles that have already executed partner-up may have
+              ;;caused the turtle executing partner-up to be partnered,
+              ;;a check is needed to make sure the calling turtle isn't partnered.
+  if(not partnered?                               ;;make sure still not partnered
+    and table:length partner-payoff > 0) [        ;;make sure that partnering is possible
+    set partner most-favourable-partner nobody
+    set resource-on-patch resource-on-patch - 1
+    set partnered? true
+    set heading 270                   ;;face partner
+    ask partner [
       set partnered? true
-      set heading 270                   ;;face partner
-      ask partner [
-        set partnered? true
-        set partner myself
-        set heading 90
-      ]
+      set partner myself
+      set heading 90
     ]
+  ]
 end
 
-;;choose an action based upon the strategy being played
-to select-action ;;turtle procedure
+to-report most-favourable-partner [ignore-turtle]
+  let highest-payoff 0
+  let highest-payoff-sum 0
+  let h-partner nobody
+  foreach table:to-list partner-payoff [ x  ->
+    let t-partner turtle (first sublist x 0 1)
+    let t-payoff (first sublist (array:to-list (first sublist x 1 2)) 0 1)
+    let t-sum-payoff (first sublist (array:to-list (first sublist x 1 2)) 1 2)
+    ifelse highest-payoff < t-payoff
+    ;; and (self =[most-favourable-partner] of t-partner) ;; figure out how to call the partner without cyclic call
+    [
+      set highest-payoff t-payoff
+      set highest-payoff-sum t-sum-payoff
+      set h-partner t-partner
+    ][ if highest-payoff = t-payoff
+      and highest-payoff-sum < t-sum-payoff
+      ;;and self =[most-favourable-partner] of t-partner
+      [
+        set highest-payoff-sum t-sum-payoff
+        set h-partner t-partner
+      ]
+    ]
+  ]
+;  print partner-payoff
+;  print highest-payoff
+;  print highest-payoff-sum
+;  print h-partner
+;  print "---------"
+  report h-partner
+end
+
+
+to select-action ;;turtle procedure ;;choose an action based upon the strategy being played
   if partner != nobody [
     if strategy = "random" [ act-randomly ]
     if strategy = "cooperate" [ cooperate ]
@@ -259,13 +292,12 @@ to play-a-round ;;turtle procedure
   ]
 end
 
-;;calculate the payoff for this round and
-;;display a label with that payoff.
-to get-payoff
-  ;; TODO this code is tobe refactored
-  ;; this code has duplicate logic as report-payoff
-  ;; we need to remote the the logic duplication
-;;  set partner-defected? [defect-now?] of partner
+to get-payoff ;;calculate the payoff for this round and
+              ;;display a label with that payoff.
+;; TODO this code is tobe refactored
+;; this code has duplicate logic as report-payoff
+;; we need to remote the the logic duplication
+  set partner-defected? [defect-now?] of partner
   set score report-payoff partner        ;; Assign the computed score
   ifelse partner-defected? [
     ifelse defect-now? [
@@ -305,9 +337,8 @@ to-report report-payoff [other-turtle]
   report return-score
 end
 
-;; compute payoff for 2 turtles interaction
-;; and put the values in the payoff matrix.
-to compute-payoff [me-turtle other-turtle]
+to compute-payoff [me-turtle other-turtle];; compute payoff for 2 turtles interaction
+                                          ;; and put the values in the payoff matrix.
   ;; initiliaze the variables
   let score-me-turtle [report-payoff other-turtle] of me-turtle
   let score-other-turtle [report-payoff me-turtle] of other-turtle
@@ -329,11 +360,7 @@ to compute-payoff [me-turtle other-turtle]
   ]
 end
 
-
-
-
-;;update PARTNER-HISTORY based upon the strategy being played
-to update-history
+to update-history ;;update PARTNER-HISTORY based upon the strategy being played
   if strategy = "random" [ act-randomly-history-update ]
   if strategy = "cooperate" [ cooperate-history-update ]
   if strategy = "defect" [ defect-history-update ]
@@ -342,11 +369,7 @@ to update-history
   if strategy = "generous" [ generous-history-update ]
 end
 
-
-;;;;;;;;;;;;;;;;
 ;;;Strategies;;;
-;;;;;;;;;;;;;;;;
-
 ;;All the strategies are described in the Info tab.
 
 to act-randomly
@@ -409,10 +432,10 @@ to unforgiving-history-update
   ]
 end
 
-;;defaults to tit-for-tat
-;;can you do better?
-;; FOR OJUS: here is where you would modify to incorporate generous tit for tat
-to generous
+to generous ;;defaults to tit-for-tat
+            ;;can you do better?
+            ;; FOR OJUS: here is where you would modify to incorporate generous tit for tat
+
   if partner != nobody [
   set num-generous-games num-generous-games + 1
   set partner-defected? item ([who] of partner) partner-history
@@ -442,13 +465,9 @@ to generous-history-update
   ]
 end
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;Plotting Procedures;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;calculate the total scores of each strategy
-to do-scoring
+to do-scoring ;;calculate the total scores of each strategy
   set random-score  (calc-score "random" num-random)
   set cooperate-score  (calc-score "cooperate" num-cooperate)
   set defect-score  (calc-score "defect" num-defect)
@@ -458,8 +477,8 @@ to do-scoring
   set total-resources (calc-resources)
 end
 
-;; returns the total score for a strategy if any turtles exist that are playing it
-to-report calc-score [strategy-type num-with-strategy]
+
+to-report calc-score [strategy-type num-with-strategy] ;; returns the total score for a strategy if any turtles exist that are playing it
   ifelse num-with-strategy > 0 [
     report (sum [ score ] of (turtles with [ strategy = strategy-type ]))
   ] [
@@ -573,7 +592,7 @@ n-random
 n-random
 0
 200
-2.0
+130.0
 1
 1
 NIL
@@ -588,7 +607,7 @@ n-cooperate
 n-cooperate
 0
 100
-100.0
+41.0
 1
 1
 NIL
@@ -603,7 +622,7 @@ n-defect
 n-defect
 0
 200
-103.0
+171.0
 1
 1
 NIL
@@ -633,7 +652,7 @@ n-unforgiving
 n-unforgiving
 0
 100
-0.0
+100.0
 1
 1
 NIL
@@ -648,7 +667,7 @@ n-generous
 n-generous
 0
 100
-35.0
+100.0
 1
 1
 NIL
@@ -716,7 +735,7 @@ initial-turtle-energy
 initial-turtle-energy
 0
 100
-40.0
+48.0
 1
 1
 NIL

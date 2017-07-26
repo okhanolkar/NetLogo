@@ -200,6 +200,8 @@ end
 ;;calculate the payoff for this round and
 ;;display a label with that payoff.
 to get-payoff
+  type "defect-now for self : " print defect-now?
+  type "partner-defect-now" print [defect-now?] of partner
   set partner-defected? [defect-now?] of partner
   ifelse partner-defected? [
     ifelse defect-now? [
@@ -483,7 +485,7 @@ n-defect
 n-defect
 0
 200
-0.0
+103.0
 1
 1
 NIL
@@ -528,7 +530,7 @@ n-generous
 n-generous
 0
 100
-0.0
+35.0
 1
 1
 NIL
@@ -741,7 +743,7 @@ random-seed?
 random-seed?
 0
 100
-50.0
+64.0
 1
 1
 NIL

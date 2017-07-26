@@ -1,12 +1,12 @@
-extensions [ table array]
+extensions [ table array] ; puts the code so that you can create an array
 globals [
   ;;number of turtles with each strategy
-  num-random
-  num-cooperate
-  num-defect
-  num-tit-for-tat
-  num-unforgiving
-  num-generous
+  num-random ; defines the number of random turtles
+  num-cooperate ; number of cooperator turtles
+  num-defect ; number of defector turtles
+  num-tit-for-tat ; number of t-f-t turtles
+  num-unforgiving ; number of unforgiving turtkes
+  num-generous ; number of generous turtles
 
 
   ;;number of interactions by each strategy
@@ -35,7 +35,7 @@ globals [
 
 breed [resource-patch-makers resource-patch-maker]
 
-turtles-own [
+turtles-own [ ; each turtle has these qualities
   score
   strategy
   defect-now?
@@ -49,7 +49,7 @@ turtles-own [
   partner-payoff ;;store for payoff values per partner for matching
 ]
 
-patches-own [
+patches-own [ ; each patch has these qualities
   resource-patch
   resource-on-patch ;;sets resources on patch
 ]
@@ -57,7 +57,7 @@ patches-own [
 ;;; Setup Procedures;;;
 to setup
   clear-all                   ;; clear all counters
-  random-seed random-seed?
+  random-seed random-seed?    ;; sets a random number
   store-initial-turtle-counts ;;record the number of turtles created for each strategy
   setup-turtles               ;;setup the turtles and distribute them randomly
   reset-ticks
@@ -76,18 +76,18 @@ to store-initial-turtle-counts ;;record the number of turtles created for each s
   set num-forgiving forgiving
 end
 
-to setup-turtles ;;setup the turtles and distribute them randomly
+to setup-turtles ;;setup the turtles and the patch maker turtles and distribute them randomly
 
   make-turtles ;;create the appropriate number of turtles playing each strategy
   setup-common-variables ;;sets the variables that all turtles share
 
   ;;this is where you make the resource-patch-makers:
-  create-resource-patch-makers resource-patches
-  [forward WHO
-  set pcolor red
-  set resource-patch true
-  set resource-on-patch initial-patch-resource
-  die]
+  create-resource-patch-makers resource-patches ;; creates resource patch makers
+  [forward WHO ;; forward WHO amount
+  set pcolor red ;; the patch that the agent lands on, paint it red.
+  set resource-patch true ;;instills value into red patch: calling it the resource patch
+  set resource-on-patch initial-patch-resource ;;gives the resource patch an initial amount of energy
+  die] ;; kill off the resource-patch-makers
 
 end
 
@@ -115,7 +115,9 @@ to setup-history-lists ;;initialize PARTNER-HISTORY list in all turtles
                        ;;expanded to include list of histories of the turtles. OR create another partner history for the FTFT. Keeps list of ALL the turtles
                        ;; and ALL of the interactions--when he defered and when he cooperated.
 
-  let num-turtles count turtles
+;  let num-turtles count turtles
+
+  let num-turtles 50000
 
   let default-history [] ;;initialize the DEFAULT-HISTORY variable to be a list
 
@@ -131,29 +133,29 @@ to go
   clear-last-round
 
   ;; Check energy
-  ;; Make each turtule move randomly
+  ;; Make each turtle move randomly
   ;; Deducting energy after
   ask turtles [
     ;; determine if the turtle should continue or die.
-    if energy = 0[   ;; if no engry left
+    if energy = 0[   ;; if no energy left
       ifelse score > 0 [  ;; check if any score can be converted into energy
         set energy score * energy-multiplier ;; convert a percentage of the score to energy
         set score  0
       ] [die]         ;; if no energy left and no score to convert then die
     ]
 
-    ;; if turtle is still alive then move randomly and compute payoff matrix
+    ;; if turtle is still alive then move randomly
     rt (random-float 90 - random-float 90) fd 1
 
-    ;; deduct energy from the trutle based on a number-of-ticks-per-energy factor
-    if ticks mod number-of-ticks-per-energy = 0 [
+    ;; deduct energy from the turtle based on a number-of-ticks-per-energy factor
+    if ticks mod number-of-ticks-per-energy = 0 [ ;every multiple of number-of-ticks-per-energy, deduct 1 energy point from the turtles.
       set energy energy - 1
     ]
   ]
 
   ;; compute payoff matrix for the current state
   ask turtles [
-    compute-payoff-matrix
+    compute-payoff-matrix ;;calling compute-payoff-matrix function
   ]
 
   ;; based on the compute matrix pick partners
@@ -165,7 +167,8 @@ to go
     partner-up
 
     ;; replicate turtles if energy is available
-    if energy > replication-energy-threshold [
+    if energy > replication-energy-threshold [ ;;if the energy of the agent is greater than the replication energy threshold, then produce 1 baby
+                                               ;; with the same energy levels that the initial agent started out with
       hatch 1
         [set energy initial-turtle-energy]
       set energy initial-turtle-energy
@@ -173,7 +176,7 @@ to go
   ]
 
   ;; replenish resource patches
-  if ticks mod time-to-replenish = 0 and time-to-replenish != 100 [
+  if ticks mod time-to-replenish = 0 and time-to-replenish != 100 [ ;;every multiple of time-to-replenish ticks, ask the red resource patches to set their inital-patch-resource
     ask patches [
       if pcolor = red [
         set resource-on-patch initial-patch-resource
@@ -181,7 +184,7 @@ to go
     ]
   ]
 
-  let partnered-turtles turtles with [ partnered? ]
+  let partnered-turtles turtles with [ partnered? ] ;;partnered turtles select action, play around, calculate scoring, and tick
   ask partnered-turtles [ select-action ]           ;;all partnered turtles select action
   ask partnered-turtles [ play-a-round ]
   do-scoring
@@ -191,7 +194,7 @@ end
 
 
 to clear-last-round
-  let partnered-turtles turtles with [ partnered? ] ; defines an energyntset
+  let partnered-turtles turtles with [ partnered? ] ; defines an energy set
   ask partnered-turtles [ release-partners ] ;; release partners
   ask turtles [set partner-payoff table:make] ;; clear up the payoff table
 end
@@ -230,41 +233,48 @@ to partner-up ;;have turtles try to find a partner
               ;;a check is needed to make sure the calling turtle isn't partnered.
   if(not partnered?                               ;;make sure still not partnered
     and table:length partner-payoff > 0) [        ;;make sure that partnering is possible
-    set partner most-favourable-partner nobody
-    set resource-on-patch resource-on-patch - 1
-    set partnered? true
-    set heading 270                   ;;face partner
-    ask partner [
+    set partner most-favourable-partner nobody    ;; if there is a partner
+    if partner != nobody [
+      if pcolor = red [set resource-on-patch resource-on-patch - 1] ;;if the agent finds a partner on a red patch, decrease 1 from resource on patch
       set partnered? true
-      set partner myself
-      set heading 90
+      set heading 270                   ;;face partner
+      ask partner [
+        set partnered? true
+        set partner myself
+        set heading 90
+      ]
     ]
   ]
 end
 
-to-report most-favourable-partner [ignore-turtle]
-  let highest-payoff 0
+to-report most-favourable-partner [default-agent] ;;finding a most favourable partner
+  let highest-payoff 0                            ;;set best conditions: highest payoff, highest sum, partner
   let highest-payoff-sum 0
   let h-partner nobody
-  foreach table:to-list partner-payoff [ x  ->
-    let t-partner turtle (first sublist x 0 1)
+  foreach table:to-list partner-payoff [ x  ->    ;; converting table partner-payoff to list. x is one key-value
+    let t-partner turtle (first x)
     let t-payoff (first sublist (array:to-list (first sublist x 1 2)) 0 1)
     let t-sum-payoff (first sublist (array:to-list (first sublist x 1 2)) 1 2)
     ifelse highest-payoff < t-payoff
-    ;; and (self =[most-favourable-partner] of t-partner) ;; figure out how to call the partner without cyclic call
+    ;; determine if the partern will also choose agent given all the choices.
+    and ((default-agent = nobody and self = [most-favourable-partner self] of t-partner) or default-agent != nobody)
     [
       set highest-payoff t-payoff
       set highest-payoff-sum t-sum-payoff
       set h-partner t-partner
     ][ if highest-payoff = t-payoff
       and highest-payoff-sum < t-sum-payoff
-      ;;and self =[most-favourable-partner] of t-partner
+      ;; determine if the patern will also choose agent given all the choices.
+      and ((default-agent = nobody and self = [most-favourable-partner self] of t-partner) or default-agent != nobody)
       [
         set highest-payoff-sum t-sum-payoff
         set h-partner t-partner
       ]
     ]
   ]
+;  print "---------"
+;  print self
+;  print default-agent
 ;  print partner-payoff
 ;  print highest-payoff
 ;  print highest-payoff-sum
@@ -298,19 +308,10 @@ to get-payoff ;;calculate the payoff for this round and
 ;; this code has duplicate logic as report-payoff
 ;; we need to remote the the logic duplication
   set partner-defected? [defect-now?] of partner
-  set score report-payoff partner        ;; Assign the computed score
   ifelse partner-defected? [
-    ifelse defect-now? [
-      set label 1
-    ] [
-      set label 0
-    ]
+    ifelse defect-now? [ set score (score + 1 ) set label 1] [ set score (score + 0) set label 0 ]
   ] [
-    ifelse defect-now? [
-      set label 5
-    ] [
-      set label 3
-    ]
+    ifelse defect-now? [ set score (score + 5) set label 5 ] [ set score (score + 3) set label 3 ]
   ]
  ;; set energy energy - 1 ;+ score
 end
@@ -321,18 +322,9 @@ to-report report-payoff [other-turtle]
   ;; we need to remote the the logic duplication
   let return-score 0
   ifelse [defect-now?] of other-turtle  [
-    ifelse defect-now? [
-      set return-score (score + 1 )
-
-    ] [
-      set return-score (score + 0)
-    ]
+    ifelse defect-now? [ set return-score 1 ] [ set return-score  0 ]
   ] [
-    ifelse defect-now? [
-      set return-score (score + 5)
-    ] [
-      set return-score (score + 3)
-    ]
+    ifelse defect-now? [ set return-score 5 ] [ set return-score 3 ]
   ]
   report return-score
 end
@@ -487,7 +479,7 @@ to-report calc-score [strategy-type num-with-strategy] ;; returns the total scor
 end
 
 to-report calc-resources
-  report (sum [resource-on-patch] of (patches))
+  report (sum [resource-on-patch] of patches with [pcolor = red])
 end
 
 ;alternative way to do this (I think)
@@ -865,7 +857,7 @@ replication-energy-threshold
 replication-energy-threshold
 50
 201
-98.0
+87.0
 1
 1
 NIL
@@ -895,7 +887,7 @@ resource-patches
 resource-patches
 0
 1000
-95.0
+240.0
 1
 1
 NIL
@@ -910,7 +902,7 @@ initial-patch-resource
 initial-patch-resource
 0
 100
-100.0
+19.0
 1
 1
 NIL
@@ -925,7 +917,7 @@ resource-replenish-patch
 resource-replenish-patch
 0
 100
-52.0
+17.0
 1
 1
 NIL
