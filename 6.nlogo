@@ -490,7 +490,7 @@ end
 
 to-report calc-score [strategy-type num-with-strategy] ;; returns the total score for a strategy if any turtles exist that are playing it
   ifelse num-with-strategy > 0 [
-    report (sum [ score ] of (turtles-of-strategy strategy-type))
+    report (sum [ score ] of (turtles with [strategy = strategy-type]))
   ] [
     report 0
   ]
@@ -498,14 +498,10 @@ end
 
 to-report report-avg-energy [strategy-type num-with-strategy] ;; returns average score for a turtle type
   ifelse num-with-strategy > 0 [
-    report ((sum [energy] of (turtles-of-strategy strategy-type)) / num-with-strategy)
+    report ((sum [energy] of (turtles with [strategy = strategy-type and energy > 0])) / num-with-strategy)
   ] [
     report 0
   ]
-end
-
-to-report turtles-of-strategy [strategy-type]
-  report turtles with [strategy = strategy-type]
 end
 
 to-report calc-resources
