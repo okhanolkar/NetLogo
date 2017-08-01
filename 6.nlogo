@@ -37,6 +37,7 @@ globals [
   avg-energy-unforgiving
   avg-energy-generous
 
+
 ]
 
 breed [resource-patch-makers resource-patch-maker]
@@ -51,8 +52,9 @@ turtles-own [ ; each turtle has these qualities
   partner-history   ;;a list containing information about past interactions
                     ;;with other turtles (indexed by WHO values)
   energy               ;;to help extinct the turtles
-  resource-on-turtle ;; to help turtle pick up resources
+;;  resource-on-turtle ;; to help turtle pick up resources ;; this is no being used.
   partner-payoff ;;store for payoff values per partner for matching
+  associated-patch ;; Patch that is associate with the curent interaction for the turutle.
 ]
 
 patches-own [ ; each patch has these qualities
@@ -176,8 +178,8 @@ to go
     if energy > replication-energy-threshold [ ;;if the energy of the agent is greater than the replication energy threshold, then produce 1 baby
                                                ;; with the same energy levels that the initial agent started out with
       hatch 1
-        [set energy initial-turtle-energy]
-      set energy initial-turtle-energy
+        [set energy (energy / 2)]
+      set energy (energy / 2)
     ]
   ]
 
@@ -208,6 +210,7 @@ end
 to release-partners ;;release partner and turn around to leave
   set partnered? false
   set partner nobody
+  set associated-patch nobody
   rt 180
   set label ""
 end
@@ -239,16 +242,19 @@ to partner-up ;;have turtles try to find a partner
               ;;a check is needed to make sure the calling turtle isn't partnered.
   if(not partnered?                               ;;make sure still not partnered
     and table:length partner-payoff > 0) [        ;;make sure that partnering is possible
-    set partner most-favourable-partner nobody    ;; if there is a partner
+    set partner most-favourable-partner nobody 0 resource-on-patch  ;; if there is a partner
     if partner != nobody [
       ;;if the agent finds a partner on a red patch, decrease 1 from resource on patch
-      if resource-patch = true and resource-on-patch > 0 [set resource-on-patch resource-on-patch - 1]
+      ;;if resource-patch = true and resource-on-patch > 0 [set resource-on-patch resource-on-patch - 1]
+      let linked-patch patch-here
+      set associated-patch linked-patch
       set energy energy - 1
       set partnered? true
       set heading 270                   ;;face partner
       ask partner [
         set partnered? true
         set partner myself
+        set associated-patch linked-patch
         set heading 90
         set energy energy - 1
       ]
@@ -256,7 +262,7 @@ to partner-up ;;have turtles try to find a partner
   ]
 end
 
-to-report most-favourable-partner [default-agent] ;;finding a most favourable partner
+to-report most-favourable-partner [default-agent resource-required res-on-patch] ;;finding a most favourable partner
   let highest-payoff 0                            ;;set best conditions: highest payoff, highest sum, partner
   let highest-payoff-sum 0
   let h-partner nobody
@@ -265,16 +271,18 @@ to-report most-favourable-partner [default-agent] ;;finding a most favourable pa
     let t-payoff (first sublist (array:to-list (first sublist x 1 2)) 0 1)
     let t-sum-payoff (first sublist (array:to-list (first sublist x 1 2)) 1 2)
     ifelse highest-payoff < t-payoff
+    and (t-payoff + resource-required <= res-on-patch)
     ;; determine if the partern will also choose agent given all the choices.
-    and ((default-agent = nobody and self = [most-favourable-partner self] of t-partner) or default-agent != nobody)
+    and ((default-agent = nobody and self = [most-favourable-partner self t-payoff res-on-patch] of t-partner) or default-agent != nobody)
     [
       set highest-payoff t-payoff
       set highest-payoff-sum t-sum-payoff
       set h-partner t-partner
     ][ if highest-payoff = t-payoff
       and highest-payoff-sum < t-sum-payoff
+      and (t-payoff + resource-required <= res-on-patch)
       ;; determine if the patern will also choose agent given all the choices.
-      and ((default-agent = nobody and self = [most-favourable-partner self] of t-partner) or default-agent != nobody)
+      and ((default-agent = nobody and self = [most-favourable-partner self t-payoff res-on-patch] of t-partner) or default-agent != nobody)
       [
         set highest-payoff-sum t-sum-payoff
         set h-partner t-partner
@@ -313,15 +321,20 @@ end
 
 to get-payoff ;;calculate the payoff for this round and
               ;;display a label with that payoff.
-;; TODO this code is tobe refactored
-;; this code has duplicate logic as report-payoff
-;; we need to remote the the logic duplication
-  set partner-defected? [defect-now?] of partner
-  ifelse partner-defected? [
-    ifelse defect-now? [ set score (score + 1 ) set label 1] [ set score (score + 0) set label 0 ]
-  ] [
-    ifelse defect-now? [ set score (score + 5) set label 5 ] [ set score (score + 3) set label 3 ]
-  ]
+              ;; TODO this code is tobe refactored
+              ;; this code has duplicate logic as report-payoff
+              ;; we need to remote the the logic duplication
+;  set partner-defected? [defect-now?] of partner
+
+;  ifelse partner-defected? [
+;    ifelse defect-now? [ set score (score + 1 ) set label 1] [ set score (score + 0) set label 0 ]
+;  ] [
+;    ifelse defect-now? [ set score (score + 5) set label 5 ] [ set score (score + 3) set label 3 ]
+;  ]
+  let temp-score report-payoff partner
+  set label temp-score
+  set score (score + temp-score)
+  ask associated-patch [set resource-on-patch resource-on-patch - temp-score]
  ;; set energy energy - 1 ;+ score
 end
 
@@ -583,6 +596,7 @@ PENS
 "tit-for-tat" 1.0 0 -13840069 true "" "if num-tit-for-tat-games > 0 [ plot tit-for-tat-score / (num-tit-for-tat-games) ]"
 "unforgiving" 1.0 0 -14835848 true "" "if num-unforgiving-games > 0 [ plot unforgiving-score / (num-unforgiving-games) ]"
 "generous" 1.0 0 -5825686 true "" "if num-generous-games > 0 [ plot generous-score / (num-generous-games) ]"
+"resources" 1.0 0 -955883 true "" "plot (total-resources / 1000)"
 
 BUTTON
 953
@@ -640,7 +654,7 @@ n-defect
 n-defect
 0
 200
-200.0
+10.0
 1
 1
 NIL
@@ -883,7 +897,7 @@ replication-energy-threshold
 replication-energy-threshold
 50
 201
-87.0
+122.0
 1
 1
 NIL
@@ -958,7 +972,7 @@ time-to-replenish
 time-to-replenish
 0
 100
-32.0
+50.0
 1
 1
 NIL
@@ -973,7 +987,7 @@ number-of-ticks-per-energy
 number-of-ticks-per-energy
 1
 100
-12.0
+36.0
 1
 1
 NIL
@@ -990,71 +1004,52 @@ total-resources
 1
 11
 
-MONITOR
-1217
-17
-1275
-62
-AER
-avg-energy-random
-17
-1
-11
+PLOT
+16
+250
+303
+458
+Average Energy
+Iterations
+Avg energy
+0.0
+10.0
+0.0
+30.0
+true
+true
+"" ""
+PENS
+"random" 1.0 0 -9276814 true "" "plot avg-energy-random\n"
+"cooperate" 1.0 0 -2674135 true "" "plot avg-energy-cooperators"
+"defect" 1.0 0 -13345367 true "" "plot avg-energy-defectors"
+"tit-for-tat" 1.0 0 -13840069 true "" "plot avg-energy-tft"
+"unforgiving" 1.0 0 -15637942 true "" "plot avg-energy-unforgiving"
+"generous" 1.0 0 -10022847 true "" "plot avg-energy-generous"
 
-MONITOR
-1216
-65
-1276
-110
-AEC
-avg-energy-cooperators
-17
-1
-11
-
-MONITOR
-1218
-113
-1275
-158
-AED
-avg-energy-defectors
-17
-1
-11
-
-MONITOR
-1217
-161
-1274
-206
-AETFT
-avg-energy-tft
-17
-1
-11
-
-MONITOR
-1216
-208
-1273
-253
-aeuf
-avg-energy-unforgiving
-17
-1
-11
-
-MONITOR
-1214
-257
-1271
-302
-AEG
-avg-energy-generous
-17
-1
-11
+PLOT
+310
+281
+620
+496
+Interactions
+Iterations
+Interactions
+0.0
+10.0
+0.0
+10.0
+true
+true
+"" ""
+PENS
+"random" 1.0 0 -9276814 true "" "plot num-random-games"
+"cooperate" 1.0 0 -5298144 true "" "plot num-cooperate-games"
+"defect" 1.0 0 -13345367 true "" "plot num-defect-games"
+"tit-for-tat" 1.0 0 -14439633 true "" "plot num-tit-for-tat-games"
+"unforgiving" 1.0 0 -15637942 true "" "plot num-unforgiving-games"
+"generous" 1.0 0 -10022847 true "" "plot num-generous-games"
+"pen-6" 1.0 0 -7500403 true "" "plot (num-generous-games \n+ num-unforgiving-games \n+ num-tit-for-tat-games\n+ num-cooperate-games\n+ num-defect-games\n+ num-random-games)"
 
 @#$#@#$#@
 ## WHAT IS IT?
