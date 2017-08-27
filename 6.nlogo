@@ -52,9 +52,8 @@ turtles-own [ ; each turtle has these qualities
   partner-history   ;;a list containing information about past interactions
                     ;;with other turtles (indexed by WHO values)
   energy               ;;to help extinct the turtles
-;;  resource-on-turtle ;; to help turtle pick up resources ;; this is no being used.
+  resource-on-turtle ;; to help turtle pick up resources
   partner-payoff ;;store for payoff values per partner for matching
-  associated-patch ;; Patch that is associate with the curent interaction for the turutle.
 ]
 
 patches-own [ ; each patch has these qualities
@@ -145,7 +144,7 @@ to go
   ;; Deducting energy after
   ask turtles [
     ;; determine if the turtle should continue or die.
-    if energy = 0[   ;; if no energy left
+    if energy < 0[   ;; if no energy left
       ifelse score > 0 [  ;; check if any score can be converted into energy
         set energy score * energy-multiplier ;; convert a percentage of the score to energy
         set score  0
@@ -153,7 +152,10 @@ to go
     ]
 
     ;; if turtle is still alive then move randomly
-    rt (random-float 90 - random-float 90) fd 1
+    rt (random-float 90 - random-float 90)
+    if count turtles-on patch-ahead 1 < 2 ;; prevents more than two turtles on a patch
+    [fd 1]
+
 
     ;; deduct energy from the turtle based on a number-of-ticks-per-energy factor
     if ticks mod number-of-ticks-per-energy = 0 [ ;every multiple of number-of-ticks-per-energy, deduct 1 energy point from the turtles.
@@ -186,17 +188,19 @@ to go
   ;; replenish resource patches
 
   ask patches [
-    if resource-patch = true [
-      if time-to-replenish != 0 and ticks mod time-to-replenish = 0 [ ;;every multiple of time-to-replenish ticks, ask the red resource patches to set their inital-patch-resource
-        set resource-on-patch initial-patch-resource
-      ]
+    if resource-patch = true
+      [set resource-on-patch resource-on-patch + resource-replenish-rate
+;      if time-to-replenish != 0 and ticks mod time-to-replenish = 0 [ ;;every multiple of time-to-replenish ticks, ask the red resource patches to set their inital-patch-resource
+;        set resource-on-patch initial-patch-resource
+
       color-resource-patch
     ]
   ]
+  ;]
 
   let partnered-turtles turtles with [ partnered? ] ;;partnered turtles select action, play around, calculate scoring, and tick
   ask partnered-turtles [ select-action ]           ;;all partnered turtles select action
-  ask partnered-turtles [ play-a-round ]
+  ask turtles [ play-a-round ]
   do-scoring
   tick
 end
@@ -210,7 +214,6 @@ end
 to release-partners ;;release partner and turn around to leave
   set partnered? false
   set partner nobody
-  set associated-patch nobody
   rt 180
   set label ""
 end
@@ -221,7 +224,7 @@ to compute-payoff-matrix        ;; Compute the payoff matrix
   if resource-on-patch > 0 [     ;; if we are on a red patch that has recources then proceed with partering
     let my-who-number who
     let me-turtle self     ;; agent A
-    ask (turtles-at -1 0) [                         ;; Ask all the near by turtles    ask turtles in-radius 0 [ ;;can also put turtles-here
+    ask (turtles-here) [                         ;; this changes it to have turtles on same patch partner
       set partner me-turtle
       select-action
       let other-turtle self
@@ -242,19 +245,17 @@ to partner-up ;;have turtles try to find a partner
               ;;a check is needed to make sure the calling turtle isn't partnered.
   if(not partnered?                               ;;make sure still not partnered
     and table:length partner-payoff > 0) [        ;;make sure that partnering is possible
-    set partner most-favourable-partner nobody 0 resource-on-patch  ;; if there is a partner
+    set partner most-favourable-partner nobody ;; if there is a partner
     if partner != nobody [
       ;;if the agent finds a partner on a red patch, decrease 1 from resource on patch
-      ;;if resource-patch = true and resource-on-patch > 0 [set resource-on-patch resource-on-patch - 1]
-      let linked-patch patch-here
-      set associated-patch linked-patch
+      if resource-patch = true and resource-on-patch > 0 [set resource-on-patch max list 0 (resource-on-patch )]
+                                     ;;the max here prevents resource-on-patch from becoming negative
       set energy energy - 1
       set partnered? true
       set heading 270                   ;;face partner
       ask partner [
         set partnered? true
         set partner myself
-        set associated-patch linked-patch
         set heading 90
         set energy energy - 1
       ]
@@ -262,46 +263,54 @@ to partner-up ;;have turtles try to find a partner
   ]
 end
 
-to-report most-favourable-partner [default-agent resource-required res-on-patch] ;;finding a most favourable partner
-  let highest-payoff 0                            ;;set best conditions: highest payoff, highest sum, partner
-  let highest-payoff-sum 0
-  let h-partner nobody
-  foreach table:to-list partner-payoff [ x  ->    ;; converting table partner-payoff to list. x is one key-value
-    let t-partner turtle (first x)
-    let t-payoff (first sublist (array:to-list (first sublist x 1 2)) 0 1) ;;look through history-->see if you've seen the WHO turtle before.
-                                                                           ;;Then you can find the optimal strategy
-                                                                           ;; find a way to randomize the interactions. run all the interactions without actually picking.
-                                                                           ;; have all the turtles print a number. The closest 2 numbers are the ones that pair up.
-    let t-sum-payoff (first sublist (array:to-list (first sublist x 1 2)) 1 2)
-    ifelse highest-payoff < t-payoff
-    and (t-payoff + resource-required <= res-on-patch)
-    ;; determine if the partern will also choose agent given all the choices.
-    and ((default-agent = nobody and self = [most-favourable-partner self t-payoff res-on-patch] of t-partner) or default-agent != nobody)
-    [
-      set highest-payoff t-payoff
-      set highest-payoff-sum t-sum-payoff
-      set h-partner t-partner
-    ][ if highest-payoff = t-payoff
-      and highest-payoff-sum < t-sum-payoff
-      and (t-payoff + resource-required <= res-on-patch)
-      ;; determine if the patern will also choose agent given all the choices.
-      and ((default-agent = nobody and self = [most-favourable-partner self t-payoff res-on-patch] of t-partner) or default-agent != nobody)
-      [
-        set highest-payoff-sum t-sum-payoff
-        set h-partner t-partner
-      ]
-    ]
-  ]
-;  print "---------"
-;  print self
-;  print default-agent
-;  print partner-payoff
-;  print highest-payoff
-;  print highest-payoff-sum
-;  print h-partner
-;  print "---------"
-  report h-partner
+to-report most-favourable-partner [default-agent] ;;finding a most favourable partner
+ let x table:length partner-payoff
+  let y table:to-list partner-payoff
+  ifelse x > 1 [
+    report turtle (first (item (random x) y))]
+    [report turtle (first (item 0 y))]
+
 end
+
+
+
+
+
+
+  ;  let highest-payoff 0                            ;;set best conditions: highest payoff, highest sum, partner
+;  let highest-payoff-sum 0
+;  let h-partner nobody
+;  foreach table:to-list partner-payoff [ x  ->    ;; converting table partner-payoff to list. x is one key-value
+;    let t-partner turtle (first x)
+;    let t-payoff (first sublist (array:to-list (first sublist x 1 2)) 0 1)
+;    let t-sum-payoff (first sublist (array:to-list (first sublist x 1 2)) 1 2)
+;    ifelse highest-payoff < t-payoff
+;    ;; determine if the partern will also choose agent given all the choices.
+;    and ((default-agent = nobody and self = [most-favourable-partner self] of t-partner) or default-agent != nobody)
+;    [
+;      set highest-payoff t-payoff
+;      set highest-payoff-sum t-sum-payoff
+;      set h-partner t-partner
+;    ][ if highest-payoff = t-payoff
+;      and highest-payoff-sum < t-sum-payoff
+;      ;; determine if the patern will also choose agent given all the choices.
+;      and ((default-agent = nobody and self = [most-favourable-partner self] of t-partner) or default-agent != nobody)
+;      [
+;        set highest-payoff-sum t-sum-payoff
+;        set h-partner t-partner
+;      ]
+;    ]
+;  ]
+;;  print "---------"
+;;  print self
+;;  print default-agent
+;;  print partner-payoff
+;;  print highest-payoff
+;;  print highest-payoff-sum
+;;  print h-partner
+;;  print "---------"
+;  report h-partner
+
 
 
 to select-action ;;turtle procedure ;;choose an action based upon the strategy being played
@@ -316,28 +325,28 @@ to select-action ;;turtle procedure ;;choose an action based upon the strategy b
 end
 
 to play-a-round ;;turtle procedure
-  if partner != nobody [
+  ifelse partner != nobody [
     get-payoff     ;;calculate the payoff for this round
     update-history ;;store the results for next time
+  ] [
+    if resource-patch = true [
+      set score score + 1
+      set resource-on-patch resource-on-patch - 1
+    ]
   ]
 end
 
 to get-payoff ;;calculate the payoff for this round and
               ;;display a label with that payoff.
-              ;; TODO this code is tobe refactored
-              ;; this code has duplicate logic as report-payoff
-              ;; we need to remote the the logic duplication
-;  set partner-defected? [defect-now?] of partner
-
-;  ifelse partner-defected? [
-;    ifelse defect-now? [ set score (score + 1 ) set label 1] [ set score (score + 0) set label 0 ]
-;  ] [
-;    ifelse defect-now? [ set score (score + 5) set label 5 ] [ set score (score + 3) set label 3 ]
-;  ]
-  let temp-score report-payoff partner
-  set label temp-score
-  set score (score + temp-score)
-  ask associated-patch [set resource-on-patch resource-on-patch - temp-score]
+;; TODO this code is tobe refactored
+;; this code has duplicate logic as report-payoff
+;; we need to remote the the logic duplication
+  set partner-defected? [defect-now?] of partner
+  ifelse partner-defected? [
+    ifelse defect-now? [ set score (score + 0.17 ) set label 1] [ set score (score + 0) set label 0 ]
+  ] [
+    ifelse defect-now? [ set score (score + 1) set label 5 ] [ set score (score + 0.5) set label 3 ]
+]
  ;; set energy energy - 1 ;+ score
 end
 
@@ -408,7 +417,7 @@ to cooperate
 end
 
 to color-resource-patch
-  set pcolor grey + resource-on-patch * 10
+  set pcolor scale-color yellow  resource-on-patch 0 20 ;; this scales the color of the resource
 end
 
 to cooperate-history-update
@@ -514,10 +523,15 @@ end
 
 to-report report-avg-energy [strategy-type num-with-strategy] ;; returns average score for a turtle type
   ifelse num-with-strategy > 0 [
-    report ((sum [energy] of (turtles with [strategy = strategy-type and energy > 0])) / num-with-strategy)
-  ] [
+    let report-energy ((sum [energy] of (turtles with [strategy = strategy-type and energy > 0])) / num-with-strategy)
+    ifelse report-energy != 0 [report ln report-energy] [report 0]
+  ][
     report 0
   ]
+;    report ((sum [energy] of (turtles with [strategy = strategy-type and energy > 0])) / num-with-strategy)
+;  ] [
+;    report 0
+;  ]
 end
 
 to-report calc-resources
@@ -1053,6 +1067,21 @@ PENS
 "unforgiving" 1.0 0 -15637942 true "" "plot num-unforgiving-games"
 "generous" 1.0 0 -10022847 true "" "plot num-generous-games"
 "pen-6" 1.0 0 -7500403 true "" "plot (num-generous-games \n+ num-unforgiving-games \n+ num-tit-for-tat-games\n+ num-cooperate-games\n+ num-defect-games\n+ num-random-games)"
+
+SLIDER
+641
+626
+845
+659
+resource-replenish-rate
+resource-replenish-rate
+0
+1
+1.0
+0.1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?

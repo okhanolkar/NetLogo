@@ -144,7 +144,7 @@ to go
   ;; Deducting energy after
   ask turtles [
     ;; determine if the turtle should continue or die.
-    if energy <= 0[   ;; if no energy left
+    if energy < 0[   ;; if no energy left
       ifelse score > 0 [  ;; check if any score can be converted into energy
         set energy score * energy-multiplier ;; convert a percentage of the score to energy
         set score  0
@@ -634,7 +634,7 @@ n-random
 n-random
 0
 200
-100.0
+200.0
 1
 1
 NIL
@@ -664,7 +664,7 @@ n-defect
 n-defect
 0
 200
-100.0
+200.0
 1
 1
 NIL
@@ -679,7 +679,7 @@ n-tit-for-tat
 n-tit-for-tat
 0
 200
-100.0
+200.0
 1
 1
 NIL
@@ -777,7 +777,7 @@ initial-turtle-energy
 initial-turtle-energy
 0
 100
-51.0
+55.0
 1
 1
 NIL
@@ -826,7 +826,7 @@ energy-multiplier
 energy-multiplier
 1
 10
-1.0
+2.0
 1
 1
 NIL
@@ -907,7 +907,7 @@ replication-energy-threshold
 replication-energy-threshold
 50
 201
-52.0
+55.0
 1
 1
 NIL
@@ -952,7 +952,7 @@ initial-patch-resource
 initial-patch-resource
 0
 100
-54.0
+50.0
 1
 1
 NIL
@@ -974,10 +974,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-448
-584
-620
-617
+16
+462
+188
+495
 time-to-replenish
 time-to-replenish
 0
@@ -997,7 +997,7 @@ number-of-ticks-per-energy
 number-of-ticks-per-energy
 1
 100
-12.0
+19.0
 1
 1
 NIL
@@ -1069,7 +1069,7 @@ resource-replenish-rate
 resource-replenish-rate
 0
 1
-0.1
+0.5
 0.1
 1
 NIL
